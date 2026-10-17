@@ -42,16 +42,9 @@ public:
     int matchCount() const { return m_matchRows.count(); }
     Q_INVOKABLE int matchRowAt(int index) const;
 
-    // 选择：单击独占 / Ctrl 切换 / 拖动范围
+    // 选择：单选（单击）
     int selectionCount() const { return m_selectedRows.count(); }
-    Q_INVOKABLE void selectRow(int row, bool clearOthers);
-    Q_INVOKABLE void toggleRow(int row);
-    Q_INVOKABLE void selectRange(int anchorRow, int targetRow);
-    Q_INVOKABLE void clearSelection();
-
-    // 复制到系统剪贴板
-    Q_INVOKABLE void copySelectionToClipboard();
-    Q_INVOKABLE void copyAllToClipboard();
+    Q_INVOKABLE void selectRow(int row);
 
     Q_INVOKABLE void loadFile(const QString &path);
     Q_INVOKABLE void filterByLevel(const QString &level);

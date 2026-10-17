@@ -3,10 +3,12 @@ import QtQuick.Controls 2.14
 import QtQuick.Layouts 1.14
 import QtQuick.Dialogs 1.3
 import com.demo 1.0
+import "."
 
 // ============================================================
 // 日志查看器 —— 主窗口
 // 结构：列表卡片（底层） + 顶栏/底栏（毛玻璃浮层） + 弹窗
+// 配色统一走 Theme.qml 单例
 // ============================================================
 ApplicationWindow {
     id: window
@@ -27,7 +29,7 @@ ApplicationWindow {
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.bottom: statusBar.top
-        color: "#FFFFFF"
+        color: Theme.surface
 
         LogListView {
             id: logView
@@ -36,7 +38,6 @@ ApplicationWindow {
             anchors.rightMargin: 1
             model: logModel
             keyword: toolBar.searchText
-            blurSource: listCard
             scrollHost: listCard
 
             onMatchInfoChanged: matchInfo.text = info
@@ -73,7 +74,7 @@ ApplicationWindow {
         anchors.bottom: parent.bottom
         height: 30
         z: 10
-        color: "#FF1E293B"
+        color: Theme.barSolid
 
         RowLayout {
             anchors.fill: parent
@@ -84,20 +85,20 @@ ApplicationWindow {
             Text {
                 text: "共 " + logModel.count + " 条"
                 font.pixelSize: 12
-                color: "#E2E8F0"
+                color: Theme.barText
             }
 
             Text {
                 id: matchInfo
                 text: ""
                 font.pixelSize: 12
-                color: "#FBBF24"
+                color: Theme.amber
             }
 
             Text {
                 text: logModel.selectionCount > 0 ? "已选 " + logModel.selectionCount + " 条" : ""
                 font.pixelSize: 12
-                color: "#93C5FD"
+                color: Theme.selectionText
             }
 
             Item { Layout.fillWidth: true }
@@ -105,7 +106,7 @@ ApplicationWindow {
             Text {
                 text: "日志查看器"
                 font.pixelSize: 12
-                color: "#64748B"
+                color: Theme.textMuted
             }
         }
     }
@@ -127,7 +128,7 @@ ApplicationWindow {
         // Qt 5.14 的 Dialog 无 background 属性，内容区直接铺圆角白底
         Rectangle {
             anchors.fill: parent
-            color: "#FFFFFF"
+            color: Theme.surface
             radius: 8
             TextArea {
                 anchors.fill: parent
@@ -156,7 +157,7 @@ ApplicationWindow {
         anchors.fill: parent
         z: 100
         visible: dropArea.containsDrag
-        color: "#990F172A"
+        color: Theme.dim
 
         Text {
             anchors.centerIn: parent

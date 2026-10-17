@@ -2,6 +2,7 @@ import QtQuick 2.14
 import QtQuick.Controls 2.14
 import QtQuick.Layouts 1.14
 import QtGraphicalEffects 1.14
+import "."
 
 // ============================================================
 // 顶部工具栏：毛玻璃背景 + 打开文件 / 级别过滤 / 搜索 / 匹配导航 / 清空
@@ -23,7 +24,7 @@ Rectangle {
 
     // ---------- 对外属性 ----------
     property Item blurSource: null              // 毛玻璃抓取源（传列表卡片）
-    property color overlayColor: "#001E293B"    // 深色罩色（alpha 控制顶栏通透度）
+    property color overlayColor: Theme.bar      // 深色罩色（alpha 控制顶栏通透度；#00 全透明）
     readonly property alias searchText: searchField.text
 
     // ---------- 毛玻璃层：抓取横条内容做模糊 ----------
@@ -59,8 +60,8 @@ Rectangle {
             background: Rectangle {
                 implicitHeight: 30
                 radius: 6
-                color: parent.down ? "#1D4ED8"
-                     : (parent.hovered ? "#3B82F6" : "#2563EB")
+                color: parent.down ? Theme.accentDown
+                     : (parent.hovered ? Theme.accentHover : Theme.accent)
                 Behavior on color { ColorAnimation { duration: 120 } }
             }
             contentItem: Text {
@@ -77,7 +78,7 @@ Rectangle {
         Rectangle {
             Layout.preferredWidth: 1
             Layout.preferredHeight: 24
-            color: "#475569"
+            color: Theme.dividerDark
         }
 
         // 级别过滤
@@ -89,66 +90,94 @@ Rectangle {
             model: ["ALL", "DEBUG", "INFO", "WARN", "ERROR"]
             onCurrentTextChanged: toolBar.levelChanged(currentText)
 
+            // ★ 下拉项样式：必须覆写 ComboBox 自己的 delegate 属性。
+            // popup 里 ListView 的 model 是 delegateModel（自带 delegate），那里写的 delegate 不生效。
+            // Basic 默认 delegate 的悬停底 = palette.midlight（浅灰）+ highlightedText（白字），
+            // 这正是"浅底浅字"看不清的根源。
+            delegate: ItemDelegate {
+                id: comboItem
+                width: levelCombo.width
+                text: modelData
+                font.pixelSize: 13
+                highlighted: levelCombo.highlightedIndex === index
+
+                contentItem: Text {
+                    text: comboItem.text
+                    color: (comboItem.hovered || comboItem.highlighted) ? "white" : Theme.text
+                    font: comboItem.font
+                    elide: Text.ElideRight
+                    leftPadding: 8
+                    verticalAlignment: Text.AlignVCenter
+                }
+
+                background: Rectangle {
+                    radius: 6
+                    color: (comboItem.hovered || comboItem.highlighted) ? Theme.accent : "transparent"
+                }
+
+                onClicked: {
+                    levelCombo.currentIndex = index
+                    levelCombo.popup.close()
+                }
+            }
+
             background: Rectangle {
                 radius: 6
                 // 半透明磨砂：透出顶栏罩层与栏融合
-                color: parent.hovered ? "#CCFFFFFF" : "#99FFFFFF"
-                border.color: "#CCFFFFFF"
+                color: parent.hovered ? Theme.glassHover : Theme.glassLight
+                border.color: Theme.glassHover
                 Behavior on color { ColorAnimation { duration: 120 } }
             }
 
             // Basic 样式下拉的颜色直接读 palette（见 Controls.2/ComboBox.qml），
             // 改 palette 不依赖 popup 覆盖机制，稳定生效
-            palette.window: "#EEFFFFFF"          // 下拉背景：磨砂白
-            palette.mid: "#B4B2A9"               // 下拉边框：浅灰
-            palette.text: "#1E293B"              // 下拉项文字
-            palette.highlight: "#2563EB"         // 高亮底色
-            palette.highlightedText: "#FFFFFF"   // 高亮文字
+            palette.window: Theme.glassPanel       // 下拉背景（兜底）
+            palette.mid: Theme.border              // 下拉边框（兜底）
+            palette.text: Theme.text               // 下拉项文字
+            palette.highlight: Theme.accent        // 高亮底色
+            palette.highlightedText: "white"       // 高亮文字
 
-            // 弹出下拉：磨砂容器 + 定制项
+            // 弹出下拉：真毛玻璃（抓后面列表内容做模糊）+ 磨砂白罩（无边框）
             popup: Popup {
                 y: levelCombo.height + 4
                 width: levelCombo.width
                 padding: 0
                 implicitHeight: Math.min(dropList.contentHeight + 8, 300)
 
+                // 毛玻璃层：抓下拉覆盖区域的列表内容
+                FastBlur {
+                    anchors.fill: parent
+                    source: ShaderEffectSource {
+                        sourceItem: toolBar.blurSource
+                        sourceRect: Qt.rect(levelCombo.popup.x, levelCombo.popup.y,
+                                            levelCombo.popup.width, levelCombo.popup.height)
+                        visible: false
+                    }
+                    radius: 24
+                }
+
+                // 磨砂白罩（无边框，方角——Qt 5.14 的 clip 不支持圆角裁剪）
                 Rectangle {
                     anchors.fill: parent
-                    radius: 8
-                    color: "#EEFFFFFF"
-                    border.color: "#B4B2A9"
-                    border.width: 1
+                    color: Theme.glassPanel
+                }
 
-                    ListView {
-                        id: dropList
-                        anchors.fill: parent
-                        anchors.margins: 4
-                        clip: true
-                        model: levelCombo.popup.visible ? levelCombo.delegateModel : null
-                        currentIndex: levelCombo.highlightedIndex
+                // 选项列表（最上层）
+                ListView {
+                    id: dropList
+                    anchors.fill: parent
+                    anchors.margins: 4
+                    clip: true
+                    model: levelCombo.popup.visible ? levelCombo.delegateModel : null
+                    currentIndex: levelCombo.highlightedIndex
 
-                        ScrollBar.vertical: ScrollBar {
-                            policy: ScrollBar.AsNeeded
-                            width: 6
-                        }
-
-                        delegate: ItemDelegate {
-                            width: dropList.width
-                            height: 32
-                            text: model.text
-                            font.pixelSize: 13
-                            highlighted: levelCombo.highlightedIndex === index
-                            background: Rectangle {
-                                radius: 6
-                                color: parent.hovered || parent.highlighted
-                                       ? "#1E293B33" : "transparent"
-                            }
-                            onClicked: {
-                                levelCombo.currentIndex = index
-                                levelCombo.popup.close()
-                            }
-                        }
+                    ScrollBar.vertical: ScrollBar {
+                        policy: ScrollBar.AsNeeded
+                        width: 6
                     }
+
+                    // delegate 不写在这里！model 是 ComboBox 的 delegateModel（自带 delegate），
+                    // ListView 的 delegate 属性会被忽略——正确的 delegate 写在 ComboBox 上（上方）
                 }
             }
         }
@@ -165,8 +194,8 @@ Rectangle {
             onAccepted: toolBar.jumpFirstRequested()
             background: Rectangle {
                 radius: 6
-                color: parent.hovered ? "#CCFFFFFF" : "#99FFFFFF"
-                border.color: parent.activeFocus ? "#2563EB" : "#E2E8F0"
+                color: parent.hovered ? Theme.glassHover : Theme.glassLight
+                border.color: parent.activeFocus ? Theme.accent : Theme.border
                 border.width: parent.activeFocus ? 2 : 1
                 Behavior on color { ColorAnimation { duration: 120 } }
             }

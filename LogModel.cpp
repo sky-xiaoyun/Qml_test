@@ -1,11 +1,7 @@
 #include "LogModel.h"
 
-#include <algorithm>
-
-#include <QClipboard>
 #include <QDebug>
 #include <QFile>
-#include <QGuiApplication>
 #include <QRegularExpression>
 #include <QTextStream>
 #include <QUrl>
@@ -59,7 +55,7 @@ int LogModel::matchRowAt(int index) const
     return m_matchRows.at(index);
 }
 
-// ==================== 选择 ====================
+// ==================== 选择（单选） ====================
 
 void LogModel::notifySelectionChanged()
 {
@@ -69,81 +65,15 @@ void LogModel::notifySelectionChanged()
     emit selectionChanged();
 }
 
-void LogModel::selectRow(int row, bool clearOthers)
+void LogModel::selectRow(int row)
 {
     if (row < 0 || row >= m_filteredEntries.count())
         return;
-    if (clearOthers) {
-        if (m_selectedRows.size() == 1 && m_selectedRows.contains(row))
-            return;
-        m_selectedRows.clear();
-    }
+    if (m_selectedRows.size() == 1 && m_selectedRows.contains(row))
+        return;
+    m_selectedRows.clear();
     m_selectedRows.insert(row);
     notifySelectionChanged();
-}
-
-void LogModel::toggleRow(int row)
-{
-    if (row < 0 || row >= m_filteredEntries.count())
-        return;
-    if (m_selectedRows.contains(row))
-        m_selectedRows.remove(row);
-    else
-        m_selectedRows.insert(row);
-    notifySelectionChanged();
-}
-
-void LogModel::selectRange(int anchorRow, int targetRow)
-{
-    if (m_filteredEntries.isEmpty())
-        return;
-    const int lo = qBound(0, qMin(anchorRow, targetRow), m_filteredEntries.count() - 1);
-    const int hi = qBound(0, qMax(anchorRow, targetRow), m_filteredEntries.count() - 1);
-
-    // 无变化则跳过（拖动时高频调用，避免无谓刷新）
-    if (m_selectedRows.size() == hi - lo + 1) {
-        bool same = true;
-        for (int r = lo; r <= hi && same; ++r)
-            same = m_selectedRows.contains(r);
-        if (same)
-            return;
-    }
-
-    m_selectedRows.clear();
-    for (int r = lo; r <= hi; ++r)
-        m_selectedRows.insert(r);
-    notifySelectionChanged();
-}
-
-void LogModel::clearSelection()
-{
-    if (m_selectedRows.isEmpty())
-        return;
-    m_selectedRows.clear();
-    notifySelectionChanged();
-}
-
-// ==================== 剪贴板 ====================
-
-void LogModel::copySelectionToClipboard()
-{
-    QList<int> rows = m_selectedRows.values();
-    std::sort(rows.begin(), rows.end());
-
-    QStringList lines;
-    for (int r : rows) {
-        if (r >= 0 && r < m_filteredEntries.count())
-            lines << m_filteredEntries.at(r).rawLine;
-    }
-    QGuiApplication::clipboard()->setText(lines.join(QLatin1Char('\n')));
-}
-
-void LogModel::copyAllToClipboard()
-{
-    QStringList lines;
-    for (const LogEntry &entry : m_filteredEntries)
-        lines << entry.rawLine;
-    QGuiApplication::clipboard()->setText(lines.join(QLatin1Char('\n')));
 }
 
 // ==================== 加载 / 过滤 / 搜索 ====================

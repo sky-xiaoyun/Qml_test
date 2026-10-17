@@ -1,11 +1,10 @@
 import QtQuick 2.14
 import QtQuick.Controls 2.14
 import QtQuick.Layouts 1.14
-import QtGraphicalEffects 1.14
+import "."
 
 // ============================================================
-// 日志列表：行渲染（徽章/合并计数/高亮）+ 选择（单击/Ctrl/拖动）+ 右键菜单 + 匹配导航
-// 与外部只通过 property / signal 通信
+// 日志列表：行渲染（徽章/合并计数/高亮）+ 单选 + 匹配导航
 // ============================================================
 ListView {
     id: listView
@@ -14,7 +13,6 @@ ListView {
 
     // ---------- 对外属性 ----------
     property string keyword: ""             // 搜索高亮关键词（由工具栏传入）
-    property Item blurSource: null          // 右键菜单毛玻璃抓取源（传列表卡片）
     property Item scrollHost: null          // 滚动条 parent（传列表卡片）
     property int matchCursor: -1            // 当前匹配序号（-1 = 无）
 
@@ -71,7 +69,7 @@ ListView {
         background: Rectangle { color: "transparent" }
         contentItem: Rectangle {
             radius: 7
-            color: parent.hovered || parent.pressed ? "#94A3B8" : "#CBD5E1"
+            color: parent.hovered || parent.pressed ? Theme.scrollHover : Theme.scroll
             Behavior on color { ColorAnimation { duration: 120 } }
         }
     }
@@ -84,15 +82,16 @@ ListView {
         readonly property bool isMatch: listView.keyword !== "" &&
                                         model.rawLine.indexOf(listView.keyword) >= 0
 
+        // 优先级：选中 > 当前匹配 > 搜索命中 > 悬停 > 级别底色
         color: {
-            if (model.selected) return "#BFDBFE"                    // 选中（蓝-200）
-            if (ListView.isCurrentItem) return "#FDE047"            // 当前匹配
-            if (isMatch) return "#FEF08A"                           // 搜索命中
-            if (rowMouse.containsMouse) return "#F8FAFC"            // 悬停
-            if (model.level === "ERROR") return "#FEF2F2"
-            if (model.level === "WARN") return "#FFFBEB"
-            if (model.level === "DEBUG") return "#F8FAFC"
-            return "#FFFFFF"
+            if (model.selected) return Theme.selected
+            if (ListView.isCurrentItem) return Theme.current
+            if (isMatch) return Theme.match
+            if (rowMouse.containsMouse) return Theme.hoverRow
+            if (model.level === "ERROR") return Theme.errorBg
+            if (model.level === "WARN") return Theme.warnBg
+            if (model.level === "DEBUG") return Theme.debugBg
+            return Theme.surface
         }
 
         RowLayout {
@@ -106,7 +105,7 @@ ListView {
                 Layout.preferredWidth: 110
                 font.family: "Consolas"
                 font.pixelSize: 13
-                color: "#334155"
+                color: Theme.textSub
                 elide: Text.ElideRight
             }
 
@@ -116,10 +115,10 @@ ListView {
                 Layout.preferredHeight: 22
                 radius: 4
                 color: {
-                    if (model.level === "ERROR") return "#FEE2E2"
-                    if (model.level === "WARN") return "#FEF3C7"
-                    if (model.level === "INFO") return "#DBEAFE"
-                    return "#F1F5F9"
+                    if (model.level === "ERROR") return Theme.errorBadgeBg
+                    if (model.level === "WARN") return Theme.warnBadgeBg
+                    if (model.level === "INFO") return Theme.infoBadgeBg
+                    return Theme.debugBadgeBg
                 }
                 Text {
                     anchors.centerIn: parent
@@ -128,10 +127,10 @@ ListView {
                     font.pixelSize: 12
                     font.bold: true
                     color: {
-                        if (model.level === "ERROR") return "#DC2626"
-                        if (model.level === "WARN") return "#D97706"
-                        if (model.level === "INFO") return "#2563EB"
-                        return "#64748B"
+                        if (model.level === "ERROR") return Theme.errorText
+                        if (model.level === "WARN") return Theme.warnText
+                        if (model.level === "INFO") return Theme.infoText
+                        return Theme.debugText
                     }
                 }
             }
@@ -143,7 +142,7 @@ ListView {
                 Layout.fillWidth: true
                 font.family: "Consolas"
                 font.pixelSize: 14
-                color: "#0F172A"
+                color: Theme.text
                 elide: Text.ElideRight
             }
         }
@@ -154,7 +153,7 @@ ListView {
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             height: 1
-            color: "#E2E8F0"
+            color: Theme.border
             visible: index < (listView.model ? listView.model.count - 1 : -1)
         }
 
@@ -162,74 +161,13 @@ ListView {
             id: rowMouse
             anchors.fill: parent
             hoverEnabled: true
-            acceptedButtons: Qt.LeftButton | Qt.RightButton
-            property int dragAnchor: -1
 
-            onPressed: {
-                if (mouse.button !== Qt.LeftButton)
-                    return
-                listView.currentIndex = index
-                if (mouse.modifiers & Qt.ControlModifier)
-                    listView.model.toggleRow(index)         // Ctrl+单击：加/减选
-                else
-                    listView.model.selectRow(index, true)   // 单击：独占选中
-                dragAnchor = index
-            }
-
-            // 右键：官方推荐在 onClicked 处理（press+release 完整后弹菜单）
             onClicked: {
-                if (mouse.button === Qt.RightButton) {
-                    if (!model.selected)
-                        listView.model.selectRow(index, true)
-                    contextMenu.popup()
-                }
-            }
-
-            onPositionChanged: {
-                // 按住左键拖动：划过哪些行就选中到哪些行（连续多选）
-                if (!pressed || dragAnchor < 0)
-                    return
-                const pt = mapToItem(listView, mouse.x, mouse.y)
-                const target = listView.indexAt(pt.x, pt.y)
-                if (target >= 0 && target !== dragAnchor)
-                    listView.model.selectRange(dragAnchor, target)
+                listView.currentIndex = index
+                listView.model.selectRow(index)      // 单击：单选
             }
 
             onDoubleClicked: listView.detailRequested(model.rawLine)
-        }
-    }
-
-    // ---------- 右键菜单（毛玻璃） ----------
-    Menu {
-        id: contextMenu
-
-        background: Item {
-            FastBlur {
-                anchors.fill: parent
-                source: ShaderEffectSource {
-                    sourceItem: listView.blurSource
-                    sourceRect: Qt.rect(contextMenu.x, contextMenu.y,
-                                        contextMenu.width, contextMenu.height)
-                    visible: false
-                }
-                radius: 24
-            }
-            Rectangle {
-                anchors.fill: parent
-                radius: 8
-                color: "#CCFFFFFF"          // 80% 白罩，保证菜单文字可读
-                border.color: "#B4B2A9"
-            }
-        }
-
-        MenuItem {
-            text: "复制选中行"
-            enabled: listView.model && listView.model.selectionCount > 0
-            onTriggered: listView.model.copySelectionToClipboard()
-        }
-        MenuItem {
-            text: "复制全部"
-            onTriggered: listView.model.copyAllToClipboard()
         }
     }
 }
