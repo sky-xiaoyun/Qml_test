@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/">
+        <file>main.qml</file>
+        <file>LogToolBar.qml</file>
+        <file>LogListView.qml</file>
+        <file>BarButton.qml</file>
+    </qresource>
+</RCC>
